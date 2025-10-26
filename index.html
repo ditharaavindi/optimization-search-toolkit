@@ -18,7 +18,6 @@
   .section { margin-bottom: 3rem; }
   .desc { color: #444; margin-bottom: 0.5rem; }
   canvas, svg { border: 1px solid #ccc; margin-top: 10px; }
-  .score { font-weight: bold; margin-top: 0.5rem; }
   textarea { width: 100%; height: 90px; margin-top: 0.5rem; font-family: inherit; font-size: 14px; padding: 6px; border-radius: 6px; border: 1px solid #ccc; }
   .grid-wrap { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
   .kv { font-size: 14px; color: #555; }
@@ -32,7 +31,7 @@
   <h2>Overall Summary</h2>
   <table id="summary-table">
     <thead>
-      <tr><th>Task</th><th>Status</th><th>Score</th><th>Details</th></tr>
+      <tr><th>Task</th><th>Status</th><th>Details</th></tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -43,13 +42,19 @@
 <script>
 // ------------- Helpers -------------
 function addSummaryRow(tbl, name, score, maxScore, ok, details) {
+  // Score column intentionally omitted to hide grading marks
   const tr = document.createElement("tr");
   const td1 = document.createElement("td"); td1.textContent = name;
   const td2 = document.createElement("td"); td2.innerHTML = ok ? "<span class='ok'>OK</span>" : "<span class='no'>No</span>";
-  const td3 = document.createElement("td"); td3.textContent = score + "/" + maxScore;
-  const td4 = document.createElement("td"); td4.textContent = details;
-  tr.append(td1, td2, td3, td4);
+  const td3 = document.createElement("td"); td3.textContent = details;
+  tr.append(td1, td2, td3);
   tbl.appendChild(tr);
+}
+
+function formatNumberOrNA(v, digits=2) {
+  if (v === null || v === undefined) return 'N/A';
+  if (typeof v !== 'number' || !isFinite(v)) return 'N/A';
+  return v.toFixed(digits);
 }
 
 function drawGrid(canvas, rows, cols, obstacles, path, start, goal) {
@@ -169,7 +174,7 @@ Promise.all([
   addSummaryRow(tbl,"BFS", d.bfs?.score||0,10, d.bfs?.score==10, `Path len ${d.bfs?.path_len}/${d.bfs?.best_len}`);
   addSummaryRow(tbl,"A*", d.astar?.score||0,15, d.astar?.score==15, `Expansions ${d.astar?.expansions}`);
   addSummaryRow(tbl,"IDS", d.ids?.score||0,15, d.ids?.score==15, `Expansions ${d.ids?.expansions}`);
-  addSummaryRow(tbl,"Simulated Annealing", d.sa?.score||0,15, d.sa?.score==15, `Improvement ${ (d.sa?.improvement||0).toFixed(2) }`);
+  addSummaryRow(tbl,"Simulated Annealing", d.sa?.score||0,15, d.sa?.score==15, `Improvement ${ formatNumberOrNA(d.sa?.improvement) }`);
   addSummaryRow(tbl,"Heuristics", d.heuristics?.score||0,20, d.heuristics?.score==20,
                 `M:${d.heuristics?.manhattan?.ok?'✓':'✗'} E:${d.heuristics?.straight?.ok?'✓':'✗'} C:${d.heuristics?.custom?.ok?'✓':'✗'}`);
   addSummaryRow(tbl,"Linear Programming", d.lp?.score||0,12.5, d.lp?.score==12.5, `Z* ${d.lp?.optimum}`);
@@ -208,7 +213,7 @@ Promise.all([
   addSection(sec,"Simulated Annealing",
     "SA must improve on the BFS baseline and exhibit an annealing history (non-constant, multiple changes).",
     d.sa,(s,data)=>{
-      addKV(s, {BFS_Cost:data.bfs0_cost, Final_Cost:data.final_cost, Improvement:(data.improvement||0).toFixed(2)});
+    addKV(s, {BFS_Cost:data.bfs0_cost, Final_Cost:data.final_cost, Improvement:formatNumberOrNA(data.improvement)});
       const wrap = document.createElement("div"); wrap.className="grid-wrap";
       const canv=document.createElement("canvas"); canv.width=320; canv.height=320; wrap.appendChild(canv);
       drawGrid(canv, rows, cols, obstacles, data.path, start, goal);
@@ -222,11 +227,12 @@ Promise.all([
     "We test heuristics on random states for admissibility & sanity: Manhattan, Straight-line, Custom.",
     d.heuristics,(s,data)=>{
       const t = document.createElement("table");
-      t.innerHTML = `<tr><th>Heuristic</th><th>Status</th><th>Score</th><th>Detail</th></tr>`;
+      // Score column removed to avoid showing grades
+      t.innerHTML = `<tr><th>Heuristic</th><th>Status</th><th>Detail</th></tr>`;
       [["Manhattan","manhattan"],["Straight-line","straight"],["Custom","custom"]].forEach(([name,key])=>{
         const r = document.createElement("tr");
         const st = data?.[key]?.ok ? "<span class='ok'>OK</span>" : "<span class='no'>Fail</span>";
-        r.innerHTML = `<td>${name}</td><td>${st}</td><td>${data?.[key]?.score||0}</td><td>${data?.[key]?.detail||""}</td>`;
+        r.innerHTML = `<td>${name}</td><td>${st}</td><td>${data?.[key]?.detail||""}</td>`;
         t.appendChild(r);
       });
       s.appendChild(t);

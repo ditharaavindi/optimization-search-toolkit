@@ -264,7 +264,8 @@ def grade_sa(student_sa, rows, cols, obstacles, seed) -> Dict[str, Any]:
 
     # strict scoring on 3 conditions
     IMPROVE_THR = 1.0
-    improvement = -1e9
+    # improvement is None when not computable (e.g., SA failed or costs not finite)
+    improvement = None
     if ok and math.isfinite(bfs0_cost) and math.isfinite(final_cost or float('inf')):
         improvement = bfs0_cost - final_cost
     history_ok = isinstance(history, list) and len(history) >= 2
@@ -287,6 +288,7 @@ def grade_sa(student_sa, rows, cols, obstacles, seed) -> Dict[str, Any]:
         "final_cost": final_cost,
         "history": history,
         "bfs0_cost": bfs0_cost,
+        # improvement may be None; JSON will contain `null` which the viewer can treat as N/A
         "improvement": improvement,
         "score": score,
     }
