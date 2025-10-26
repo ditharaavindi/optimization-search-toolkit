@@ -1,236 +1,112 @@
-# SE3062 Optimization & Search Programming Assignment
+# Optimization & Search — Run & Usage
 
-## 📋 Overview
+Updated run instructions for the repository. This file documents how to run the included runner and view results locally after cloning the git repository.
 
-This repository contains a comprehensive implementation of various search algorithms, optimization techniques, and mathematical programming methods for the SE3062 Optimization & Search course assignment.
+## Quick summary
 
-**Current Score: 100/100** ✅
+- The primary entrypoint for grading / running is `runner.py`.
+- Running `runner.py` (from the repo root) will create `problem.json` and `results.json` which the `index.html` visualization consumes.
+- The project uses only Python's standard library (no requirements file by default). A virtual environment is recommended.
 
-## 🎯 Implemented Algorithms
+## 1) Clone and open the project
 
-### 1. **Search Algorithms**
-
-- **Breadth-First Search (BFS)** - Finds shortest unweighted paths
-- **A\* Search** - Optimal pathfinding with heuristic guidance
-- **Iterative Deepening Search (IDS)** - Combines DFS space efficiency with BFS completeness
-
-### 2. **Heuristic Functions**
-
-- **Manhattan Distance** - Admissible for grid-based navigation
-- **Euclidean Distance** - Straight-line distance heuristic
-- **Custom Heuristic** - Weighted combination of Manhattan and Euclidean
-
-### 3. **Optimization Techniques**
-
-- **Simulated Annealing (SA)** - Metaheuristic for path optimization
-- **Linear Programming (LP)** - 2D vertex enumeration method
-- **Dynamic Programming (DP)** - 0/1 Knapsack problem solver
-
-## 📁 File Structure
-
-```
-Assignment 2/
-├── README.md                 # This file
-├── runner.py                 # Main grading and execution script
-├── index.html               # Web interface for results visualization
-├── common.py                # Shared utilities and data structures
-├── heuristics.py            # Heuristic function implementations
-├── student_bfs.py           # BFS algorithm implementation
-├── student_astar.py         # A* search algorithm implementation
-├── student_ids.py           # Iterative Deepening Search implementation
-├── student_sa.py            # Simulated Annealing implementation
-├── student_lp_dp.py         # Linear Programming & Dynamic Programming
-├── problem.json             # Generated problem instance data
-├── results.json             # Generated results and scores
-└── results/                 # Additional result files directory
-```
-
-## 🚀 How to Run
-
-### Prerequisites
-
-- Python 3.7 or higher
-- No external libraries required (uses only standard library)
-
-### Running the Assignment
-
-1. **Navigate to the project directory:**
-
-   ```bash
-   cd "/Users/ditharaavindi/Desktop/year 3 sem 1/IS/take  home/Assignment 2"
-   ```
-
-2. **Execute the main runner script:**
-
-   ```bash
-   python3 runner.py --student_id YOUR_STUDENT_ID
-   ```
-
-   **Optional parameters:**
-
-   ```bash
-   python3 runner.py --student_id YOUR_ID --seed 12345 --rows 8 --cols 8 --density 0.3
-   ```
-
-   - `--student_id`: Your unique student identifier
-   - `--seed`: Random seed for reproducible results
-   - `--rows`, `--cols`: Grid dimensions (default: 6x6)
-   - `--density`: Obstacle density (default: 0.22)
-
-3. **The script will generate:**
-   - `problem.json` - Problem instance data
-   - `results.json` - Detailed results and scores
-
-## 🌐 Viewing Results (HTML Interface)
-
-### Method 1: Using HTTP Server (Recommended)
-
-1. **Start a local HTTP server:**
-
-   ```bash
-   python3 -m http.server 8080
-   ```
-
-2. **Open your web browser and navigate to:**
-   ```
-   http://localhost:8080/index.html
-   ```
-
-### Method 2: Direct File Opening
+Clone the repository (if you haven't already) and change into the project folder:
 
 ```bash
-open index.html
+git clone <your-repo-url>
+cd optimization-search-toolkit
 ```
 
-_Note: Some browsers may block local file access due to CORS policies_
+Replace `<your-repo-url>` with the Git remote you use (GitHub, local path, etc.).
 
-## 📊 HTML Interface Features
+## 2) Create a Python virtualenv (recommended)
 
-The web interface provides:
+macOS (zsh):
 
-### 📈 **Summary Table**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+```
 
-- Overall scores for each algorithm component
-- Status indicators (✓ for perfect, ✗ for issues)
-- Performance metrics and details
+If the project provides a `requirements.txt` later, install it with:
 
-### 🎨 **Visualizations**
+```bash
+pip install -r requirements.txt
+```
 
-- **Grid Visualizations**: Shows search paths, obstacles, start/goal positions
-- **SA Improvement Chart**: Displays annealing progress over iterations
-- **LP Feasible Region**: Graphical representation of linear programming solution
-- **DP Table Preview**: Dynamic programming computation table
+## 3) Run the main runner
 
-### 📝 **Justification Areas**
+Run from the repository root (where `runner.py` and the `student_*.py` modules live). Example:
 
-- Text boxes for explaining algorithm design choices
-- Sections for custom heuristic justification
-- Areas for simulated annealing strategy explanation
+```bash
+python3 runner.py --student_id YOUR_STUDENT_ID
+```
 
-### 💾 **Export to PDF**
+Example with overrides:
 
-1. Use browser's Print function (Ctrl/Cmd + P)
-2. Select "Save as PDF"
-3. Ensure all visualizations are included
-4. Name file as: `SE3062_Assignment_YOUR_STUDENT_ID.pdf`
+```bash
+python3 runner.py --student_id TEST123 --seed 42 --rows 8 --cols 8 --density 0.25
+```
 
-## 🔍 Algorithm Details
+Flags:
 
-### Search Algorithms
+- `--student_id` (string): student id used as seed default and saved in output files (required-ish; default is `TEST`)
+- `--seed` (string): optional seed override (if omitted the `student_id` is used as seed)
+- `--rows`, `--cols` (int): grid dimensions (default 6x6)
+- `--density` (float): obstacle density (default 0.22)
 
-- **BFS**: Guarantees shortest path on unweighted grids
-- **A\***: Uses heuristics for efficient optimal pathfinding
-- **IDS**: Memory-efficient search with completeness guarantees
+What the runner produces:
 
-### Optimization Methods
+- `problem.json` — generated problem (grid size, obstacles, seed)
+- `results.json` — grading output including per-algorithm results, scores, and hidden checks
 
-- **SA**: Improves paths using temperature-controlled acceptance
-- **LP**: Solves 2D optimization problems graphically
-- **DP**: Efficiently solves knapsack optimization problems
+Important: run `runner.py` from the repository root so the script can `import student_bfs`, `student_astar`, etc. (these are imported as top-level modules).
 
-### Heuristic Design
+## 4) View the visualization (index.html)
 
-- All heuristics are **admissible** (never overestimate)
-- **Custom heuristic**: `0.6 × Manhattan + 0.4 × Euclidean`
-- Balances grid-awareness with directional guidance
+Recommended: serve the repo root with a simple HTTP server and open `index.html` in a browser:
 
-## 🐛 Troubleshooting
+```bash
+python3 -m http.server 8080
+# then open http://localhost:8080/index.html in your browser
+```
 
-### Common Issues
+You can also use `open index.html` on macOS, but many browsers restrict certain file access when using the `file://` protocol. Serving via `http://` avoids that.
 
-1. **"Address already in use" error:**
+## 5) Running or testing individual modules (for development)
 
-   ```bash
-   # Try a different port
-   python3 -m http.server 8081
-   ```
+- To quickly test a student's BFS implementation interactively you can run a small REPL or a short script that imports `student_bfs` and calls its `bfs` function with a neighbors function. Example (python REPL):
 
-2. **HTML not displaying results:**
+```py
+from importlib import import_module
+S = import_module('student_bfs')
+from runner import neighbors_4, START
+obs = set()
+n4 = neighbors_4(6, 6, obs)
+trace = type('T', (), {'expanded': [], 'expand': lambda self, n: self.expanded.append(n)})()
+path = S.bfs(START, (5,5), n4, trace)
+print(path)
+```
 
-   - Ensure you're using HTTP server (not file:// protocol)
-   - Check that `results.json` and `problem.json` exist
-   - Verify Python script ran without errors
+But note: the official grader uses the signatures shown in `runner.py` (e.g., `student.astar(start, goal, neighbors_fn, heur_fn, trace)`). When developing, keep those signatures.
 
-3. **Import errors:**
+## Troubleshooting & tips
 
-   - Ensure all student files are in the same directory
-   - Check Python version compatibility
+- If you see `ModuleNotFoundError` when running `runner.py`, make sure your working directory is the repository root and the `student_*.py` files are present there.
+- If results do not appear in the HTML, confirm `problem.json` and `results.json` exist and are up-to-date (re-run `runner.py`).
+- If the HTTP server reports "Address already in use", pick another port (e.g., `8081`).
 
-4. **Visualization not appearing:**
-   - Use HTTP server instead of direct file opening
-   - Check browser console for JavaScript errors
+## Notes for maintainers
 
-## 📚 Assignment Requirements
-
-### Scoring Breakdown (100 points total)
-
-- **BFS**: 10 points - Correct shortest path implementation
-- **A\***: 15 points - Optimal pathfinding with heuristics
-- **IDS**: 15 points - Proper depth-limited search
-- **SA**: 15 points - Effective path improvement
-- **Heuristics**: 20 points - Admissible heuristic functions
-- **LP**: 12.5 points - Vertex enumeration method
-- **DP**: 12.5 points - Knapsack optimization
-
-### Key Requirements
-
-✅ All algorithms must call `trace.expand()` when expanding nodes  
-✅ Heuristics must be admissible (never overestimate true cost)  
-✅ SA must improve upon BFS baseline by >1.0 units  
-✅ LP must find optimal solution at feasible vertices  
-✅ DP implementations must agree on optimal value
-
-## 🎓 Submission Guidelines
-
-### Required Deliverables
-
-1. **PDF Report**: Export of `index.html` with justifications
-
-   - Include all visualizations and scores
-   - Add written explanations for algorithm choices
-   - Name format: `SE3062_Assignment_STUDENT_ID.pdf`
-
-2. **Source Code**: All Python implementation files
-   - `student_bfs.py`, `student_astar.py`, `student_ids.py`
-   - `student_sa.py`, `student_lp_dp.py`, `heuristics.py`
-
-### Academic Integrity
-
-- All implementations must be original work
-- External libraries/code copying is prohibited
-- Be prepared to explain your algorithms in a viva if requested
-
-## 📞 Support
-
-For questions or issues:
-
-- Check the course forum for common problems
-- Review the assignment specification document
-- Ensure your implementation follows the exact function signatures
-- Test with different seeds to verify robustness
+- `runner.py` uses only Python standard library modules (argparse, json, random, importlib, typing, etc.). If you add third-party packages, add a `requirements.txt` so users can `pip install -r requirements.txt`.
+- Keep `student_*` files in repository root so the dynamic imports (`importlib.import_module`) work without package changes.
 
 ---
 
-**🏆 Achievement: Perfect Score 100/100**
+If you'd like, I can also:
 
-This implementation demonstrates comprehensive understanding of search algorithms, optimization techniques, and mathematical programming methods required for the SE3062 course.
+- Add a minimal `requirements.txt` (even if empty) so `pip install -r requirements.txt` is a no-op step, or
+- Add a short `run.sh` helper script to wrap virtualenv activation and `runner.py` execution.
+
+If you want either of those, tell me which and I'll add it.
