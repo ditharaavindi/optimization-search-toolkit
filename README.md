@@ -103,10 +103,3 @@ But note: the official grader uses the signatures shown in `runner.py` (e.g., `s
 - Keep `student_*` files in repository root so the dynamic imports (`importlib.import_module`) work without package changes.
 
 ---
-
-If you'd like, I can also:
-
-- Add a minimal `requirements.txt` (even if empty) so `pip install -r requirements.txt` is a no-op step, or
-- Add a short `run.sh` helper script to wrap virtualenv activation and `runner.py` execution.
-
-If you want either of those, tell me which and I'll add it.
