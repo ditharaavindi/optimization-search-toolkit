@@ -1,0 +1,14 @@
+{
+  "h_zero": {
+    "admissible": true,
+    "consistent": true
+  },
+  "h_manhattan": {
+    "admissible": true,
+    "consistent": true
+  },
+  "h_custom": {
+    "admissible": true,
+    "consistent": true
+  }
+}

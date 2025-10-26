@@ -1,0 +1,60 @@
+{
+  "search_manhattan": {
+    "bfs": {
+      "path_len": 9,
+      "expanded": 22
+    },
+    "ucs": {
+      "path_len": 9,
+      "cost": 8,
+      "expanded": 22
+    },
+    "astar": {
+      "path_len": 9,
+      "cost": 8,
+      "expanded": 21
+    }
+  },
+  "search_custom": {
+    "bfs": {
+      "path_len": 9,
+      "expanded": 22
+    },
+    "ucs": {
+      "path_len": 9,
+      "cost": 8,
+      "expanded": 22
+    },
+    "astar": {
+      "path_len": 9,
+      "cost": 8,
+      "expanded": 21
+    }
+  },
+  "heuristics": {
+    "h_zero": {
+      "admissible": true,
+      "consistent": true
+    },
+    "h_manhattan": {
+      "admissible": true,
+      "consistent": true
+    },
+    "h_custom": {
+      "admissible": true,
+      "consistent": true
+    }
+  },
+  "lp": {
+    "best": [
+      6.6666666667,
+      4.6666666667
+    ],
+    "Z": 70.00000000040001,
+    "num_vertices": 5
+  },
+  "dp": {
+    "bottom_up": 30,
+    "top_down": 30
+  }
+}

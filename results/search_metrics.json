@@ -1,0 +1,16 @@
+{
+  "bfs": {
+    "path_len": 9,
+    "expanded": 22
+  },
+  "ucs": {
+    "path_len": 9,
+    "cost": 8,
+    "expanded": 22
+  },
+  "astar": {
+    "path_len": 9,
+    "cost": 8,
+    "expanded": 21
+  }
+}
