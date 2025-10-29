@@ -18,7 +18,7 @@
   .section { margin-bottom: 3rem; }
   .desc { color: #444; margin-bottom: 0.5rem; }
   canvas, svg { border: 1px solid #ccc; margin-top: 10px; }
-  textarea { width: 100%; height: 90px; margin-top: 0.5rem; font-family: inherit; font-size: 14px; padding: 6px; border-radius: 6px; border: 1px solid #ccc; }
+  /* textarea styling removed - justification areas not needed */
   .grid-wrap { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
   .kv { font-size: 14px; color: #555; }
 </style>
@@ -134,14 +134,7 @@ function drawDP(div, table) {
   div.appendChild(t);
 }
 
-function addJustification(sec, key) {
-  const label = document.createElement("p");
-  label.textContent = "Justification / Design Notes (saved locally):";
-  const ta = document.createElement("textarea");
-  ta.value = localStorage.getItem("notes_"+key) || "";
-  ta.addEventListener("input", ()=>localStorage.setItem("notes_"+key, ta.value));
-  sec.append(label, ta);
-}
+// Justification textareas removed - not part of core specification
 
 function addKV(sec, obj) {
   const p = document.createElement("p"); p.className="kv";
@@ -156,7 +149,7 @@ function addSection(container, name, desc, data, renderFn, key) {
   const p = document.createElement("p"); p.className="desc"; p.textContent=desc;
   sec.append(h2,p);
   if (renderFn) renderFn(sec,data);
-  addJustification(sec,key);
+  // Justification textareas removed - cleaner UI for submission
   container.appendChild(sec);
 }
 
