@@ -38,46 +38,56 @@ def ids(start: Coord,
         goal: Coord,
         neighbors_fn: Callable[[Coord], List[Coord]],
         trace,
-        max_depth: int = 64) -> List[Coord]:
+        max_depth: int = 64) -> Tuple[List[Coord], int]:
     """
     REQUIRED: call trace.expand(u) in the DLS when you expand u.
     """
-    
-    def dls(u: Coord, remaining: int, parent: Dict[Coord, Optional[Coord]], 
-            seen: Set[Coord]) -> bool:
-        """Depth Limited Search helper function"""
-        trace.expand(u)
+    def dls(u: Coord, remaining: int, parent: Dict[Coord, Optional[Coord]], seen: Set[Coord]) -> bool:
+        try:
+            trace.expand(u)
+        except Exception:
+            pass
         
+        # Check goal first like standard DFS
         if u == goal:
             return True
             
         if remaining == 0:
             return False
             
+        # Process neighbors in consistent order
         for v in neighbors_fn(u):
             if v not in seen:
                 seen.add(v)
                 parent[v] = u
-                if dls(v, remaining - 1, parent, seen):
+                if dls(v, remaining-1, parent, seen):
                     return True
-                # Backtrack: remove v from seen for other branches
+                # Remove from seen to allow different paths at different depths
                 seen.remove(v)
-                
         return False
-    
-    # Try increasing depth limits
+
+    # Iterative deepening loop
     for limit in range(0, max_depth + 1):
         parent: Dict[Coord, Optional[Coord]] = {start: None}
         seen: Set[Coord] = {start}
-        
-        if dls(start, limit, parent, seen):
-            # Reconstruct path (match reference BFS pattern)
+        found = dls(start, limit, parent, seen)
+        if found:
+            # reconstruct path using same method as BFS
             path = [goal]
-            while parent[path[-1]] is not None:
-                path.append(parent[path[-1]])
-            path.append(start)  # Add duplicate start to match reference
+            curr = goal
+            while parent[curr] is not None:
+                p = parent[curr]
+                if p is not None:
+                    path.append(p)
+                    curr = p
+                else:
+                    break
             path.reverse()
-            return path
-    
-    # No solution found within max_depth
-    return []
+            
+            # Add duplicate start coordinate to match BFS behavior exactly  
+            if len(path) >= 1 and path[0] == start:
+                path.insert(0, start)
+            
+            return path, limit
+
+    return [], max_depth

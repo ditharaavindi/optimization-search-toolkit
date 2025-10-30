@@ -68,26 +68,25 @@ def _intersect(c1: Constraint, c2: Constraint) -> Optional[Tuple[float, float]]:
     Return:
       (x, y) if a unique intersection exists and is well-conditioned; otherwise None.
     """
-    # Unpack constraint coefficients
-    a1, a2, b1 = c1  # a1*x + a2*y = b1
-    c1_coeff, c2_coeff, b2 = c2  # c1*x + c2*y = b2
+    # Unpack constraints: a1*x + a2*y = b1, c1*x + c2*y = b2
+    a1, a2, b1 = c1
+    c1_coef, c2_coef, b2 = c2
     
-    # Compute determinant of the coefficient matrix
-    # | a1  a2 |
-    # | c1  c2 |
-    det = a1 * c2_coeff - a2 * c1_coeff
+    # Coefficient matrix determinant: | a1  a2 |
+    #                                | c1  c2 |
+    det = a1 * c2_coef - a2 * c1_coef
     
-    # Check if lines are parallel (near-zero determinant)
+    # Check for near-zero determinant (parallel lines)
     if abs(det) < EPS:
         return None
     
     # Solve using Cramer's rule:
-    # x = (b1*c2 - a2*b2) / det
-    # y = (a1*b2 - b1*c1) / det
-    x = (b1 * c2_coeff - a2 * b2) / det
-    y = (a1 * b2 - b1 * c1_coeff) / det
+    # x = (b1*c2 - b2*a2) / det
+    # y = (a1*b2 - c1*b1) / det
+    x = (b1 * c2_coef - b2 * a2) / det
+    y = (a1 * b2 - c1_coef * b1) / det
     
-    return (x, y)
+    return (float(x), float(y))
 
 
 def _is_feasible(pt: Tuple[float, float], constraints: List[Constraint]) -> bool:
@@ -101,15 +100,10 @@ def _is_feasible(pt: Tuple[float, float], constraints: List[Constraint]) -> bool
       4) If all pass, return True.
     """
     x, y = pt
-    
-    for a1, a2, b in constraints:
-        # Compute left-hand side: a1*x + a2*y
+    for (a1, a2, b) in constraints:
         lhs = a1 * x + a2 * y
-        
-        # Check constraint: lhs <= b (with tolerance)
-        if lhs > b + EPS:  # Violated beyond tolerance
+        if lhs > b + EPS:  # constraint violated beyond tolerance
             return False
-    
     return True
 
 
@@ -128,42 +122,37 @@ def feasible_vertices(constraints: List[Constraint]) -> List[Tuple[float, float]
       5) De-duplicate points robustly (e.g., rounding to fixed decimals or using a tolerance-based key).
       6) Return the list of unique feasible vertices.
     """
-    # Copy input constraints and add non-negativity constraints
-    all_constraints = constraints[:]
-    all_constraints.append((-1.0, 0.0, 0.0))  # -x <= 0  (i.e., x >= 0)
-    all_constraints.append((0.0, -1.0, 0.0))  # -y <= 0  (i.e., y >= 0)
+    # Add non-negativity constraints: x >= 0 becomes -x <= 0, y >= 0 becomes -y <= 0
+    all_constraints = constraints + [(-1.0, 0.0, 0.0), (0.0, -1.0, 0.0)]
     
     candidates = []
-    
-    # Add origin as a candidate
-    candidates.append((0.0, 0.0))
     
     # Generate intersection points from all pairs of constraints
     n = len(all_constraints)
     for i in range(n):
         for j in range(i + 1, n):
-            intersection = _intersect(all_constraints[i], all_constraints[j])
-            if intersection is not None:
-                candidates.append(intersection)
+            pt = _intersect(all_constraints[i], all_constraints[j])
+            if pt is not None:
+                candidates.append(pt)
     
-    # Filter feasible candidates
+    # Add origin as an additional candidate
+    candidates.append((0.0, 0.0))
+    
+    # Filter feasible points
     feasible = []
     for pt in candidates:
         if _is_feasible(pt, all_constraints):
             feasible.append(pt)
     
-    # De-duplicate by rounding to avoid floating-point precision issues
-    unique_points = []
-    seen = set()
+    # De-duplicate using tolerance-based rounding
+    unique = []
+    for pt in feasible:
+        # Round to avoid floating point precision issues
+        rounded = (round(pt[0], 6), round(pt[1], 6))
+        if rounded not in [(round(u[0], 6), round(u[1], 6)) for u in unique]:
+            unique.append(pt)
     
-    for x, y in feasible:
-        # Round to 10 decimal places for comparison
-        rounded = (round(x, 10), round(y, 10))
-        if rounded not in seen:
-            seen.add(rounded)
-            unique_points.append((x, y))
-    
-    return unique_points
+    return unique
 
 
 def maximize_objective(vertices: List[Tuple[float, float]], c1: float, c2: float) -> Tuple[Tuple[float, float], float]:
@@ -180,29 +169,26 @@ def maximize_objective(vertices: List[Tuple[float, float]], c1: float, c2: float
       4) Return the best vertex and its value as a float.
     """
     if not vertices:
-        return ((0.0, 0.0), 0.0)
+        return (0.0, 0.0), 0.0
     
-    # Initialize with first vertex
-    best_point = vertices[0]
-    best_value = c1 * best_point[0] + c2 * best_point[1]
+    best_pt = vertices[0]
+    best_val = c1 * best_pt[0] + c2 * best_pt[1]
     
-    # Scan through remaining vertices
-    for vertex in vertices[1:]:
-        x, y = vertex
-        current_value = c1 * x + c2 * y
+    for pt in vertices[1:]:
+        val = c1 * pt[0] + c2 * pt[1]
         
-        # Check if strictly better
-        if current_value > best_value + EPS:
-            best_point = vertex
-            best_value = current_value
-        elif abs(current_value - best_value) <= EPS:
-            # Tie-breaking: prefer larger x, then larger y
-            if (x > best_point[0] + EPS) or \
-               (abs(x - best_point[0]) <= EPS and y > best_point[1] + EPS):
-                best_point = vertex
-                best_value = current_value
+        # If strictly better, update
+        if val > best_val + EPS:
+            best_pt = pt
+            best_val = val
+        # If tied within tolerance, use deterministic tie-breaking
+        elif abs(val - best_val) <= EPS:
+            # Prefer larger x, if x ties then prefer larger y
+            if pt[0] > best_pt[0] + EPS or (abs(pt[0] - best_pt[0]) <= EPS and pt[1] > best_pt[1] + EPS):
+                best_pt = pt
+                best_val = val
     
-    return (best_point, best_value)
+    return best_pt, float(best_val)
 
 
 # ---------- DP (12.5% of total grade) ----------
@@ -230,30 +216,27 @@ def knapsack_bottom_up(values: List[int], weights: List[int], capacity: int) -> 
       3) Implement your chosen formulation consistently, filling the table.
       4) Return the appropriate cell as the answer (depends on formulation).
     """
-    # Validate inputs
     n = len(values)
     if n != len(weights) or capacity < 0:
         return 0
     
-    # Use Option A: dp[i][cap] = best value using items i..n-1
+    # Using Option A: dp[i][cap] = best value using items i..n-1 with capacity 'cap'
     # Dimensions: (n+1) x (capacity+1)
     dp = [[0 for _ in range(capacity + 1)] for _ in range(n + 1)]
     
-    # Fill table from i = n-1 down to 0
+    # Fill from bottom-right to top-left
     for i in range(n - 1, -1, -1):
         for cap in range(capacity + 1):
-            # Option 1: Skip current item
+            # Option 1: skip item i
             skip = dp[i + 1][cap]
             
-            # Option 2: Take current item (if it fits)
+            # Option 2: take item i (if it fits)
             take = 0
             if weights[i] <= cap:
                 take = values[i] + dp[i + 1][cap - weights[i]]
             
-            # Take the maximum of skip and take
             dp[i][cap] = max(skip, take)
     
-    # Answer is in dp[0][capacity]
     return dp[0][capacity]
 
 
@@ -289,10 +272,9 @@ def knapsack_top_down(values: List[int], weights: List[int], capacity: int) -> i
         if weights[i] > cap:
             return f(i + 1, cap)
         
-        # Choose max of skipping or taking current item
+        # Otherwise, choose max of skip vs take
         skip = f(i + 1, cap)
         take = values[i] + f(i + 1, cap - weights[i])
-        
         return max(skip, take)
 
     return f(0, capacity)
