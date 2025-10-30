@@ -1,6 +1,6 @@
-# runner.py
+# runner.py (MSc version, fixed & robust)
 from __future__ import annotations
-import json, math, random, argparse, importlib, sys
+import json, math, random, argparse, importlib
 from typing import List, Tuple, Set, Callable, Dict, Any, Optional
 from collections import deque
 
@@ -14,19 +14,20 @@ START: Coord = (0, 0)
 # Utilities
 # --------------------------
 def set_seed_from_any(seed: str | int) -> random.Random:
+    """Deterministic RNG from any string/int (FNV-1a 64-bit)."""
     rs = str(seed)
-    h = 1469598103934665603  # FNV-1a 64-bit basis
+    h = 1469598103934665603  # FNV-1a basis
     for ch in rs:
-        h ^= ord(ch); h = (h * 1099511628211) & ((1<<64)-1)
-    r = random.Random(h)
-    return r
+        h ^= ord(ch)
+        h = (h * 1099511628211) & ((1 << 64) - 1)
+    return random.Random(h)
 
 def neighbors_4(rows: int, cols: int, obstacles: Set[Coord]) -> Callable[[Coord], List[Coord]]:
     def fn(u: Coord) -> List[Coord]:
         (r, c) = u
         out = []
         for dr, dc in [(-1,0), (1,0), (0,-1), (0,1)]:
-            nr, nc = r+dr, c+dc
+            nr, nc = r + dr, c + dc
             if 0 <= nr < rows and 0 <= nc < cols and (nr, nc) not in obstacles:
                 out.append((nr, nc))
         return out
@@ -44,36 +45,42 @@ def turns_in_path(path: List[Coord]) -> int:
     return t
 
 def objective_path(path: List[Coord]) -> float:
-    if not path: return float('inf')
+    if not path:
+        return float('inf')
     return float(len(path) + 0.2 * turns_in_path(path))
 
 def _bfs_path_local(start: Coord, goal: Coord, neighbors_fn: Callable[[Coord], List[Coord]]) -> List[Coord]:
-    if start == goal: return [start]
-    q = deque([start]); parent = {start: None}
+    """Shortest path on unweighted grid; used internally for grading."""
+    if start == goal:
+        return [start]
+    q = deque([start])
+    parent: Dict[Coord, Optional[Coord]] = {start: None}
     while q:
         u = q.popleft()
         for v in neighbors_fn(u):
             if v not in parent:
                 parent[v] = u
                 if v == goal:
-                    p = [v]
-                    while parent[p[-1]] is not None:
-                        p.append(parent[p[-1]])
-                    p.append(start)
-                    p.reverse()
-                    return p
+                    path = [v]
+                    while parent[path[-1]] is not None:
+                        path.append(parent[path[-1]])
+                    path.append(start)   # add start once at the end of backtrack
+                    path.reverse()
+                    return path
                 q.append(v)
     return []
 
 def _grid_bfs_dist(start: Coord, goal: Coord, neighbors_fn) -> float:
-    if start == goal: return 0
+    if start == goal:
+        return 0
     q = deque([start]); dist = {start: 0}
     while q:
         u = q.popleft()
         for v in neighbors_fn(u):
             if v not in dist:
                 dist[v] = dist[u] + 1
-                if v == goal: return dist[v]
+                if v == goal:
+                    return dist[v]
                 q.append(v)
     return float("inf")
 
@@ -84,8 +91,8 @@ def build_grid(rows: int, cols: int, density: float, rng: random.Random) -> Set[
         obstacles: Set[Coord] = set()
         for r in range(rows):
             for c in range(cols):
-                if (r, c) == START: continue
-                if (r, c) == (rows-1, cols-1): continue
+                if (r, c) == START or (r, c) == (rows-1, cols-1):
+                    continue
                 if rng.random() < density:
                     obstacles.add((r, c))
         n4 = neighbors_4(rows, cols, obstacles)
@@ -96,7 +103,7 @@ def build_grid(rows: int, cols: int, density: float, rng: random.Random) -> Set[
     return set()
 
 class Trace:
-    def __init__(self): self.expanded = []
+    def __init__(self): self.expanded: List[Coord] = []
     def expand(self, node: Coord): self.expanded.append(node)
 
 # --------------------------
@@ -128,11 +135,7 @@ def grade_bfs(student, rows, cols, obstacles) -> Dict[str, Any]:
     best = _bfs_path_local(START, goal, n4)
     best_len = len(best) if best else None
     path_len = len(path) if path else None
-    score = 0
-    if ok and best and path_len == best_len:
-        score = 10
-    elif ok:
-        score = 5
+    score = 10 if (ok and best and path_len == best_len) else (5 if ok else 0)
     return {
         "ok": ok,
         "path": path,
@@ -149,59 +152,56 @@ def grade_heuristics(heur, rows, cols, obstacles) -> Dict[str, Any]:
     rng = random.Random(12345)
     samples = []
     for _ in range(30):
-        r = rng.randrange(rows); c = rng.randrange(cols)
-        u = (r,c)
-        if u in obstacles: continue
+        u = (rng.randrange(rows), rng.randrange(cols))
+        if u in obstacles:
+            continue
         td = _grid_bfs_dist(u, goal, n4)
-        if not math.isfinite(td) or td == float("inf"): continue
-        samples.append((u, td))
-    def test_h(name, hf, weight):
+        if math.isfinite(td) and td != float("inf"):
+            samples.append((u, td))
+    def test_h(hf, weight):
         try:
-            ok_cnt = 0; neg = 0; nan = 0; above = 0
+            ok_cnt = 0; neg = 0; above = 0
             for (u, td) in samples:
                 h = hf(u, goal)
-                if not (isinstance(h,(int,float)) and math.isfinite(h)):
-                    nan += 1; continue
+                if not (isinstance(h, (int, float)) and math.isfinite(h)):
+                    continue
                 if h < -1e-9: neg += 1
                 if h > td + 1e-9: above += 1
-                if (h >= -1e-9) and (h <= td + 1e-9): ok_cnt += 1
+                if (-1e-9 <= h <= td + 1e-9): ok_cnt += 1
             ok = (ok_cnt >= max(5, int(0.6*len(samples)))) and (neg == 0)
-            score = weight if ok else 0
-            detail = f"ok={ok_cnt}/{len(samples)}, neg={neg}, above={above}"
-            return score, ok, detail
+            return (weight if ok else 0), ok, f"ok={ok_cnt}/{len(samples)}, neg={neg}, above={above}"
         except Exception as e:
             return 0, False, f"error: {e}"
-    m_score, m_ok, m_det = test_h("manhattan", heur.heuristic_manhattan, 5)
-    e_score, e_ok, e_det = test_h("straight", heur.heuristic_straight_line, 5)
-    c_score, c_ok, c_det = test_h("custom", heur.heuristic_custom, 10)
-    total = m_score + e_score + c_score
+    m_score, m_ok, m_det = test_h(heur.heuristic_manhattan, 5)
+    e_score, e_ok, e_det = test_h(heur.heuristic_straight_line, 5)
+    c_score, c_ok, c_det = test_h(heur.heuristic_custom, 10)
     return {
-        "score": total,
+        "score": m_score + e_score + c_score,
         "manhattan": {"ok": m_ok, "detail": m_det, "score": m_score},
         "straight": {"ok": e_ok, "detail": e_det, "score": e_score},
         "custom": {"ok": c_ok, "detail": c_det, "score": c_score},
     }
 
+def _normalize_astar_result(res):
+    """Accept path OR (path, cost)."""
+    if isinstance(res, tuple) and len(res) >= 1:
+        return list(res[0])
+    return list(res) if isinstance(res, list) else []
+
 def grade_astar(student, heur, rows, cols, obstacles) -> Dict[str, Any]:
     n4 = neighbors_4(rows, cols, obstacles)
     goal = (rows-1, cols-1)
     trace = Trace()
-    # choose manhattan by default for grading path optimality
     try:
-        path = student.astar(
-            START, goal, n4, heur.heuristic_manhattan, trace  # required signature
-        )
+        res = student.astar(START, goal, n4, heur.heuristic_manhattan, trace)
+        path = _normalize_astar_result(res)
     except Exception:
         path = []
     ok = bool(path and path[-1] == goal)
     best = _bfs_path_local(START, goal, n4)
     best_len = len(best) if best else None
     path_len = len(path) if path else None
-    score = 0
-    if ok and best and path_len == best_len:
-        score = 15
-    elif ok:
-        score = 8
+    score = 15 if (ok and best and path_len == best_len) else (8 if ok else 0)
     return {
         "ok": ok,
         "path": path,
@@ -212,23 +212,26 @@ def grade_astar(student, heur, rows, cols, obstacles) -> Dict[str, Any]:
         "score": score,
     }
 
+def _normalize_ids_result(res):
+    """Accept path OR (path, limit)."""
+    if isinstance(res, tuple) and len(res) >= 1:
+        return list(res[0])
+    return list(res) if isinstance(res, list) else []
+
 def grade_ids(student, rows, cols, obstacles) -> Dict[str, Any]:
     n4 = neighbors_4(rows, cols, obstacles)
     goal = (rows-1, cols-1)
     trace = Trace()
     try:
-        path = student.ids(START, goal, n4, trace)  # required signature
+        res = student.ids(START, goal, n4, trace)
+        path = _normalize_ids_result(res)
     except Exception:
         path = []
     ok = bool(path and path[-1] == goal)
     best = _bfs_path_local(START, goal, n4)
     best_len = len(best) if best else None
     path_len = len(path) if path else None
-    score = 0
-    if ok and best and path_len == best_len:
-        score = 15
-    elif ok:
-        score = 8
+    score = 15 if (ok and best and path_len == best_len) else (8 if ok else 0)
     return {
         "ok": ok,
         "path": path,
@@ -249,9 +252,7 @@ def grade_sa(student_sa, rows, cols, obstacles, seed) -> Dict[str, Any]:
             objective_fn=objective_path,
             obstacles=obstacles,
             seed=str(seed),
-            iters=900,
-            T0=1.3,
-            alpha=0.995
+            iters=900, T0=1.3, alpha=0.995
         )
         if isinstance(res, tuple) and len(res) == 2:
             best_path, history = res
@@ -262,10 +263,8 @@ def grade_sa(student_sa, rows, cols, obstacles, seed) -> Dict[str, Any]:
     except Exception:
         best_path, history, ok, final_cost = [], None, False, None
 
-    # strict scoring on 3 conditions
     IMPROVE_THR = 1.0
-    # improvement is None when not computable (e.g., SA failed or costs not finite)
-    improvement = None
+    improvement = -1e9
     if ok and math.isfinite(bfs0_cost) and math.isfinite(final_cost or float('inf')):
         improvement = bfs0_cost - final_cost
     history_ok = isinstance(history, list) and len(history) >= 2
@@ -274,10 +273,7 @@ def grade_sa(student_sa, rows, cols, obstacles, seed) -> Dict[str, Any]:
     satisfied = sum([improvement > IMPROVE_THR, history_ok and nonconstant, changes_ok])
 
     if ok:
-        if satisfied == 3: score = 15
-        elif satisfied == 2: score = 12
-        elif satisfied == 1: score = 9
-        else: score = 6
+        score = 15 if satisfied == 3 else 12 if satisfied == 2 else 9 if satisfied == 1 else 6
     else:
         score = 0
 
@@ -288,14 +284,12 @@ def grade_sa(student_sa, rows, cols, obstacles, seed) -> Dict[str, Any]:
         "final_cost": final_cost,
         "history": history,
         "bfs0_cost": bfs0_cost,
-        # improvement may be None; JSON will contain `null` which the viewer can treat as N/A
         "improvement": improvement,
         "score": score,
     }
 
 def grade_lp_dp(student_lpdp, rng: random.Random) -> Tuple[Dict[str,Any], Dict[str,Any]]:
-    # --- LP instance (max c^T x, Ax <= b, x>=0) ---
-    # small, nice polygon; fixed but fine for all seeds
+    # LP instance
     constraints = [
         (1.0, 1.0, 6.0),
         (1.0, 0.0, 4.0),
@@ -303,19 +297,15 @@ def grade_lp_dp(student_lpdp, rng: random.Random) -> Tuple[Dict[str,Any], Dict[s
         (2.0, 1.0, 8.0),
     ]
     c1, c2 = 3.0, 5.0
-
     try:
         verts = student_lpdp.feasible_vertices(constraints)
         best_pt, best_val = student_lpdp.maximize_objective(verts, c1, c2)
         lp_ok = (isinstance(best_pt, tuple) and len(best_pt)==2 and isinstance(best_val,(int,float)))
     except Exception:
         verts, best_pt, best_val, lp_ok = [], (0.0,0.0), None, False
-
-    lp_score = 12.5 if lp_ok else 0.0
-
     lp_out = {
         "ok": lp_ok,
-        "score": lp_score,
+        "score": 12.5 if lp_ok else 0.0,
         "constraints": constraints,
         "c": [c1, c2],
         "vertices": verts,
@@ -323,13 +313,10 @@ def grade_lp_dp(student_lpdp, rng: random.Random) -> Tuple[Dict[str,Any], Dict[s
         "optimum": best_val
     }
 
-    # --- DP instance (0/1 knapsack) ---
+    # DP instance (0/1 knapsack)
     values = [6, 5, 18, 15, 10]
     weights = [2, 2,  6,  5,  4]
     capacity = 10
-
-    # bottom-up & top-down
-    td_val = bu_val = None
     try:
         bu_val = student_lpdp.knapsack_bottom_up(values, weights, capacity)
     except Exception:
@@ -338,11 +325,9 @@ def grade_lp_dp(student_lpdp, rng: random.Random) -> Tuple[Dict[str,Any], Dict[s
         td_val = student_lpdp.knapsack_top_down(values, weights, capacity)
     except Exception:
         td_val = None
-
     dp_ok = (bu_val is not None) and (td_val is not None) and (bu_val == td_val)
-    dp_score = 12.5 if dp_ok else 0.0
 
-    # for visualization, build a small bottom-up table (runner-side) without using student code
+    # build a small DP table for the HTML viz
     n = len(values)
     dp_table = [[0]*(capacity+1) for _ in range(n+1)]
     for i in range(n-1, -1, -1):
@@ -354,7 +339,7 @@ def grade_lp_dp(student_lpdp, rng: random.Random) -> Tuple[Dict[str,Any], Dict[s
 
     dp_out = {
         "ok": dp_ok,
-        "score": dp_score,
+        "score": 12.5 if dp_ok else 0.0,
         "values": values,
         "weights": weights,
         "capacity": capacity,
@@ -363,7 +348,6 @@ def grade_lp_dp(student_lpdp, rng: random.Random) -> Tuple[Dict[str,Any], Dict[s
         "top_down_value": td_val,
         "optimum": bu_val if bu_val is not None else td_val
     }
-
     return lp_out, dp_out
 
 # --------------------------
@@ -383,15 +367,14 @@ def build_hidden_checks(seed, rows, cols, obstacles, out_all, heur_mod, sa_out, 
     except Exception as e:
         _add_check(checks, "Trace usage", False, f"error: {e}")
 
-    # A* admissibility (spot check using Manhattan)
+    # A* heuristic admissibility (Manhattan spot-check)
     try:
         n4 = neighbors_4(rows, cols, obstacles)
         goal = (rows-1, cols-1)
         rng = random.Random(4242)
         samples = []
         for _ in range(20):
-            r = rng.randrange(rows); c = rng.randrange(cols)
-            u = (r,c)
+            u = (rng.randrange(rows), rng.randrange(cols))
             if u in obstacles: continue
             td = _grid_bfs_dist(u, goal, n4)
             if math.isfinite(td) and td < float('inf'):
@@ -460,12 +443,20 @@ def build_hidden_checks(seed, rows, cols, obstacles, out_all, heur_mod, sa_out, 
 # --------------------------
 # Main run
 # --------------------------
+def _normalize_seed(student_id: str, seed: Optional[str]) -> str:
+    """Fallback to student_id when seed is None / 'None' / '' (robust)."""
+    if seed is None:
+        return student_id
+    s = str(seed).strip().lower()
+    if s == "" or s == "none":
+        return student_id
+    return str(seed)
+
 def run_suite(student_id: str, seed: str | None = None,
               rows: int = 6, cols: int = 6, density: float = 0.22) -> None:
-    if seed is None: seed = student_id
+    seed = _normalize_seed(student_id, seed)
     rng = set_seed_from_any(seed)
     obstacles = build_grid(rows, cols, density, rng)
-    goal = (rows-1, cols-1)
 
     # Save the generated problem for HTML viz
     problem = {
@@ -478,18 +469,18 @@ def run_suite(student_id: str, seed: str | None = None,
         json.dump(problem, f, indent=2)
 
     # Import student modules
-    BFS = importlib.import_module("student_bfs")
-    IDS = importlib.import_module("student_ids")
+    BFS   = importlib.import_module("student_bfs")
+    IDS   = importlib.import_module("student_ids")
     ASTAR = importlib.import_module("student_astar")
-    SA = importlib.import_module("student_sa")
-    LPDP = importlib.import_module("student_lp_dp")
-    HEUR = importlib.import_module("heuristics")
+    SA    = importlib.import_module("student_sa")
+    LPDP  = importlib.import_module("student_lp_dp")
+    HEUR  = importlib.import_module("heuristics")
 
-    bfs_out = grade_bfs(BFS, rows, cols, obstacles)
-    heur_out = grade_heuristics(HEUR, rows, cols, obstacles)
+    bfs_out   = grade_bfs(BFS, rows, cols, obstacles)
+    heur_out  = grade_heuristics(HEUR, rows, cols, obstacles)
     astar_out = grade_astar(ASTAR, HEUR, rows, cols, obstacles)
-    ids_out = grade_ids(IDS, rows, cols, obstacles)
-    sa_out = grade_sa(SA, rows, cols, obstacles, seed)
+    ids_out   = grade_ids(IDS, rows, cols, obstacles)
+    sa_out    = grade_sa(SA, rows, cols, obstacles, seed)
     lp_out, dp_out = grade_lp_dp(LPDP, rng)
 
     hidden_checks = build_hidden_checks(seed, rows, cols, obstacles,
@@ -516,7 +507,8 @@ def run_suite(student_id: str, seed: str | None = None,
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--student_id", default="TEST", help="Unique student id string")
-    ap.add_argument("--seed", default="None", help="Optional override seed")
+    # IMPORTANT: default to actual None so fallback to student_id works
+    ap.add_argument("--seed", default=None, help="Optional override seed")
     ap.add_argument("--rows", type=int, default=6)
     ap.add_argument("--cols", type=int, default=6)
     ap.add_argument("--density", type=float, default=0.22)
